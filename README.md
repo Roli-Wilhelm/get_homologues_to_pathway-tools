@@ -13,6 +13,12 @@ Input RAST annotated .gbk files -> get_homologues (specifically: "parse_pangenom
 
 Usage:
 ===============================
+1) ./compile_pangenome_output.py pangenome_matrix_t0__*.list.txt
+
+2) Take the output from 1 and move to the folder containing all of the original .gbk files used for input into get_homologues.
+
+3) ./reconstruct_gbk_from_get_homologue_output.py output.faa
+
 (Please note: this has only been tested with RAST annotated .gbk files. The script should be easily modifiable to handle the output from get_homologues resulting from other .gbk file types (essentially all the date from your original .gbk is parsed into the .faa header and delimited with a "|"). 
 
 (Also note: I am novice-intermediate at programming. There are likely frustrating aspects of reading this code and many inefficiencies. Yet, the script was able to process a .faa file resulting from 32 genomes, containing 65000 entries in 12min). 
