@@ -1,7 +1,7 @@
 get_homologues_to_pathway-tools
 ===============================
 
-Python scripts to convert the .faa output from the software package "get_homologues" back to .gbk file necessary for analyses using Pathway-tools
+Python scripts to convert the .faa output from the software package "get_homologues" back to .gbk file necessary for analyses using Pathway-tools. (i.e. a run-of-the-mill parsing script)
 
 Get_homologues (http://www.ncbi.nlm.nih.gov/pubmed/24096415) outputs a list file containing all homologous genes shared amongst a set of genomes (input as .gbk files annotated by RAST). The software provides a variety of ad-hoc cutoffs for considering aspects of the pangenome, namely the "core" set of genes (shared between ALL genomes), the shell (shared between most genomes), etc. etc., all the way to the "cloud," which are genes possessed by only one or two genomes in your group. It is a very useful tool on its own, however, I wanted to take the output "core" or "cloud" and predict which biochemical pathways may be present in these levels of similarity. 
 
