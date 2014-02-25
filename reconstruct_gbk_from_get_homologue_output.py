@@ -9,6 +9,7 @@ import timeit
 import glob
 from collections import OrderedDict
 from collections import defaultdict
+import fileinput
 
 start = timeit.default_timer()
 
@@ -80,7 +81,7 @@ r = re.compile(r'.*Contig ([\d]+)')
 #Open file to write to named according to your input
 FileName = re.sub('output_','',FAA)
 FileName = re.sub('_list.txt','',FileName)
-output = open(FileName + '.gbk', 'w')
+output = open(FileName + '.temp', 'w')
 
 ##For each genome create a dictionary for each contig
 for key in BigDict.iterkeys():
@@ -401,7 +402,7 @@ for key in BigDict.iterkeys():
 		for line in open(Contig_Header_dict[ContigPrint][0] + ".gbk", "r").readlines()[Contig_Header_dict[ContigPrint][3]:Contig_Header_dict[ContigPrint][4]]:
 			output.write(line.rstrip('\n')+"\n")
 
-
+output.close()
 #Use sed to replace all lines with "/EC_number="""
 #I went this route b/c I didn't think writing a nested for-loop was going to be fun AND I had to keep "" as a 
 #place holder until the very end.
@@ -421,11 +422,77 @@ os.system(' '.join([
 	FileName+'.gbk'
 	]))
 
-print "Your input has been parsed and a new pseudo-genbank file has been created entitled: "+FileName+".gbk"
+###Addendum to script after realizing that contig names *obvious* need to be unique
+#Determine the occurrence of all contig names
+r = re.compile(r'.*Contig ([\d]+)')
+
+Contig_names = {}
+seen = {}
+
+ContigFind = "Contig "
+
+o = open(FileName+".gbk", "w")
+
+#Create dictionary of all occurrences of contig name
+for line in open(FileName+".temp"):
+        if ContigFind in line:
+                match = r.match(line)
+
+                if not Contig_names.has_key(match.group(1)):
+                        Contig_names[match.group(1)] = 0
+
+                Contig_names[match.group(1)] = Contig_names[match.group(1)]+1
+
+#Find contig names with >1 occurrence and overwrite line with "contigname.x"
+for line in open(FileName+".temp"):
+        match1 = re.match(r'LOCUS[\s]+([\d]+)', line)   #LOCUS comes first in the ordering
+        match2 = re.match(r'DEFINITION  Contig[\s]([\d]+)', line)
+
+        if re.search(r'LOCUS[\s]+([\d]+)', line):
+                if Contig_names[match1.group(1)] > 1:
+
+                        #Make dictionary to count the number of occurrences of each contig name to create appropriate ".x"
+                        if not match1.group(1) in seen:
+                                seen[match1.group(1)] = 0
+
+                        seen[match1.group(1)] = seen[match1.group(1)] + 1
+
+                        if seen[match1.group(1)] > 1:
+                                o.write(re.sub(match1.group(0)+" ",match1.group(0)+"."+str(seen[match1.group(1)])+" ", line))
+
+                        else:
+                                o.write(line)
+                else:
+                        o.write(line)
+	elif re.search(r'DEFINITION  Contig[\s]([\d]+)', line):
+        	if Contig_names[match2.group(1)] > 1:
+
+                	if seen[match2.group(1)] > 1:
+                        	o.write(re.sub(match2.group(0)+" ",match2.group(0)+"."+str(seen[match2.group(1)])+" ", line))
+
+			else:
+                        	o.write(line)
+		else:
+			o.write(line)
+	else:
+		o.write(line)
+
+o.close()
+
+
+#print max(Contig_names.keys(), key=int)
+
+os.system(' '.join([
+	"rm",
+	FileName+'.temp'
+	]))
 
 
 stop = timeit.default_timer()
 
-print stop - start 
+print "This operation took " + str(stop - start) + " seconds."
+
+print "Your input has been parsed and a new pseudo-genbank file has been created entitled: "+FileName+".gbk"
+
 
 
