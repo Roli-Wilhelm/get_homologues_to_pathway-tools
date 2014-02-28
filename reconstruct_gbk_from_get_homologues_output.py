@@ -195,16 +195,8 @@ for key in BigDict.iterkeys():
 
 				Contig_Header_start = Contig_Header_start - 1
 				Contig_Header_dict[Current_Contig] = [Partial_Genome_ID, Contig_Header_start, Contig_Header_end, Contig_Origin_start, Contig_Origin_end]
+
 #Contig_Header_dict now contains all the start and stop information for each contig present
-
-###SORTING DOES NOT APPEAR TO WORK...
-#Sort Both dictionaries in case downstream application require the output order to be sequential
-#	OrderedDict(sorted(Contig_Header_dict.items(), key=lambda t: t[0]))
-#	OrderedDict(sorted(ContigBin.items(), key=lambda t: t[0]))
-
-#	print Contig_Header_dict
-#	print ContigBin
-
 
 ##Now begins the process of actually writing the information to file
 #Writer Header to File for the Current Contig
@@ -234,7 +226,17 @@ for key in BigDict.iterkeys():
 		        match = re.match(r'(^[\S]+) ', Diced[2])
 			Strand.append(str.strip(match.group()))
 			locus.append(re.sub(r'-','..',Diced[1]))
-		
+
+		GO = []
+		for Find in Current_contig_Strand:
+		        Diced = Find.split('^')
+			if re.search("GO:[\S]+,", Diced[1]):
+				Double_diced = Diced[1].split(',')
+				GO.append(Double_diced)
+
+			else:
+				GO.append('')
+
 		#Split Gene_name and EC
 		EC_number = []
 		Gene_name = []
@@ -276,6 +278,7 @@ for key in BigDict.iterkeys():
 		preformed_name = []
 		preformed_product = []
 		preformed_translation = []
+		preformed_GO = []
 
 	#Gonna have to deal with multiple EC_numbers
 		EC_holder = []
@@ -309,6 +312,18 @@ for key in BigDict.iterkeys():
 		
 			else:
 				preformed_EC.append("/EC_number=\""+EC_holder[count]+"\""+"\n")
+
+		#Print GO data to preformed state
+		for count in range(len(GO)):
+			if (np.size(GO[count]) > 1):  
+				foo = []
+				for GO_get in GO[count]:
+					foo1 = "/db_xref=\""+GO_get+"\""+"\n"
+					foo.append(foo1)
+				preformed_GO.append(foo)
+		
+			else:
+				preformed_GO.append("/db_xref=\""+GO[count]+"\""+"\n")
 
 		#Print Gene name preformed state
 		for count in range(len(Gene_name)):
@@ -347,6 +362,7 @@ for key in BigDict.iterkeys():
 #		print preformed_product
 #		print preformed_name
 #		print preformed_EC
+#		print preformed_GO
 #		print preformed_translation
 
 		for line in open(Contig_Header_dict[ContigPrint][0] + ".gbk", "r").readlines()[Contig_Header_dict[ContigPrint][1]:Contig_Header_dict[ContigPrint][2]]:
@@ -368,6 +384,13 @@ for key in BigDict.iterkeys():
 						output.write("                     "+EC)
 				else:
 			 		output.write("                     "+preformed_EC[count])
+
+				if np.size(preformed_GO[count]) > 1:
+					for GO_get in preformed_GO[count]: 
+						output.write("                     "+GO_get)
+				else:
+			 		output.write("                     "+preformed_GO[count])
+
 				output.write(textwrap.fill(preformed_translation[count],width=65,initial_indent='\t\t     ',subsequent_indent='\t\t     ')+"\n")
 				if np.size(preformed_product[count]) > 1:
 					for Product in preformed_product[count]:
@@ -390,6 +413,13 @@ for key in BigDict.iterkeys():
 						output.write("                     "+EC)
 				else:
 			 		output.write("                     "+preformed_EC[count])
+
+				if np.size(preformed_GO[count]) > 1:
+					for GO_get in preformed_GO[count]: 
+						output.write("                     "+GO_get)
+				else:
+			 		output.write("                     "+preformed_GO[count])
+
 				output.write(textwrap.fill(preformed_translation[count],width=65,initial_indent='\t\t     ',subsequent_indent='\t\t     ')+"\n")
 				if np.size(preformed_product[count]) > 1:
 					for Product in preformed_product[count]:
@@ -403,26 +433,31 @@ for key in BigDict.iterkeys():
 			output.write(line.rstrip('\n')+"\n")
 
 output.close()
-#Use sed to replace all lines with "/EC_number="""
-#I went this route b/c I didn't think writing a nested for-loop was going to be fun AND I had to keep "" as a 
-#place holder until the very end.
+
+#Use sed to replace all lines with empty values
+#I went this route b/c it was easiest to keep "" as place holders until the very end, rather than write conditional statements to selectively print real content
 
 os.system(' '.join([
 	"sed -i '/\/EC_number=\"\"/d'",
-	FileName+'.gbk'
+	FileName+'.temp'
 	]))
 
 os.system(' '.join([
 	"sed -i '/\/product=\"\"/d'",
-	FileName+'.gbk'
+	FileName+'.temp'
 	]))
 
 os.system(' '.join([
 	"sed -i '/\/gene=\"\"/d'",
-	FileName+'.gbk'
+	FileName+'.temp'
 	]))
 
-###Addendum to script after realizing that contig names *obvious* need to be unique
+os.system(' '.join([
+	"sed -i '/\/db_xref=\"\"/d'",
+	FileName+'.temp'
+	]))
+
+###Addendum to script after realizing that contig names *obviously* need to be unique
 #Determine the occurrence of all contig names
 r = re.compile(r'.*Contig ([\d]+)')
 
@@ -478,9 +513,6 @@ for line in open(FileName+".temp"):
 		o.write(line)
 
 o.close()
-
-
-#print max(Contig_names.keys(), key=int)
 
 os.system(' '.join([
 	"rm",
