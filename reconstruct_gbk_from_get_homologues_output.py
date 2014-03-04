@@ -67,16 +67,25 @@ for Push in Genome_ID:
 
 Genome_ID = foo	
 
-#Make dictionary with Genome_ID as key and Fasta_header and AA as values for each key
+##GROUND WORK
+#FIRST: Make dictionary with Genome_ID as key and Fasta_header and AA as values for each key
 count = 0
 BigDict = defaultdict(list)
 
 for count in range(len(Genome_ID)):
 	BigDict[Genome_ID[count]].append([Fasta_header[count], AA[count]])
 
+
+##SECOND Match genome ID to genome file
+GBK_list = []
+
+for all_gbk_in_directory in glob.glob("*.gbk"):
+	foo = re.sub('.gbk', '', all_gbk_in_directory)
+	GBK_list.append(foo)
+
+
 ##From HERE on out, I will iterate through each Genome_ID and go ALL the way to the written file
 #For each Genome_ID in Dictionary unpack its values and create second dictionary with contig as key
-r = re.compile(r'.*Contig ([\d]+)')
 
 #Open file to write to named according to your input
 FileName = re.sub('output_','',FAA)
@@ -88,114 +97,118 @@ for key in BigDict.iterkeys():
 	ContigBin = defaultdict(list)	#NOTE: CDS will be overwritten for each new Genome_ID
 	Contig = []
 	CDS = []
-	
+
+	#Pick out file name in which the current contig appears
+	#This assumes that part of the file ID will correspond with the ID used in the .gbk file
+	Current_Genome = []
+	Contig_Name_Bank = {}
+	File_Match = []
+
+        for Partial_Genome_ID in key.split(" "):
+       	        if Partial_Genome_ID in GBK_list:
+			File_Match = Partial_Genome_ID #Store this for later
+			with open(Partial_Genome_ID + ".gbk") as myFile:
+				for line in myFile:
+		       			if "LOCUS" in line:
+						line = line.split()
+						if Contig_Name_Bank.has_key(key):
+							Contig_Name_Bank[key].append(line[1])
+						else:
+							Contig_Name_Bank[key] = [line[1]]
+						
+#						print Partial_Genome_ID
+		elif key in GBK_list:
+			File_Match = key #Store this for later
+			with open(key + ".gbk") as myFile:
+				for line in myFile:
+		       			if "LOCUS" in line:
+						line = line.split()
+                                                if Contig_Name_Bank.has_key(key):
+                                                        Contig_Name_Bank[key].append(line[1])
+                                                else:
+                                                        Contig_Name_Bank[key] = [line[1]]
+#						print key
+
 	#Page contains all information for a single genome
 	for Page in BigDict[key]:
 		CDS = [Page[0],Page[1]]
-		#Create a dictionary with all contgs fround in a single genome
-		Diced = []
-		#Extract only first element from CDS (which contains the Fasta_header
+
+		#Associate each contig with every gene present in the pangenome list
 		for Cut in Page:
 			Diced = Cut.split("|")
 			if re.match(r'>', Diced[0]):
 				foo = Diced[5]
-				match = r.match(foo)
-				ContigBin[match.group(1)].append(CDS)
+								
+				for value in Contig_Name_Bank[key]:
+					if value in foo.split():
+						ContigBin[value].append(CDS)
 
 #print ContigBin ##ContigBin is a dictionary with values being a list of a list
-
-	##HERE You have a library for each Genome_ID which consists of a key for each contig and a value for
-	#all the genes found on that contig
-	GBK_list = []
-
-	for all_gbk_in_directory in glob.glob("*.gbk"):
-		foo = re.sub('.gbk', '', all_gbk_in_directory)
-		GBK_list.append(foo)
-
-	
-	#Pick out file name in which the current contig appears
-	#This assumes that part of the file ID will correspond with the ID used in the .gbk file
-	Current_Genome = []
-	Contig_List = []
-
-	for Contig in ContigBin.iterkeys():
-		foo = []
-		for Contig_CDS in ContigBin[Contig][0]:
-			Diced = Contig_CDS.split("|")
-			if re.match(r'>', Diced[0]):
-				Current_Genome = Diced[1]
-				Current_Genome = re.sub(r'\[|\]','',Current_Genome)
-				
-				foo1 = Diced[5]
-				match = r.match(foo1)
-				foo = match.group(1)
-		Contig_List.append(foo)
 
 	#Pick out the exact location within the file
 	Contig_Header_dict = {}
 
-	for Current_Contig in Contig_List:
+	for Current_Contig in ContigBin.iterkeys():
 		Contig_Header_start = []
 		Contig_Header_end = []
 		Contig_Origin_start = []
 		Contig_Origin_end = []
 
-	        for Partial_Genome_ID in Current_Genome.split(" "):
-        	        if Partial_Genome_ID in GBK_list:
+		##Locate the start and end of the header and origin portion of contig
+		lookup_start = "LOCUS"
+		lookup_end = "CDS"
+		lookup_origin_start = "ORIGIN"
+		lookup_origin_end = "//"
 
-				##Locate the start and end of the header and origin portion of contig
-				lookup_start = "Contig " + Current_Contig
-				lookup_end = "CDS"
-				lookup_origin_start = "ORIGIN"
-				lookup_origin_end = "//"
+		#Find lines which match key pieces of information
+		with open(File_Match + ".gbk") as myFile:
+		    for num, line in enumerate(myFile, 1):
+	        	if lookup_start in line:
+				if re.search(Current_Contig, line):
+		            		Contig_Header_start = num
 
-				#Find lines which match key pieces of information
-				with open(Partial_Genome_ID + ".gbk") as myFile:
-				    for num, line in enumerate(myFile, 1):
-			        	if lookup_start in line:
-				            Contig_Header_start = num-1
+		with open(File_Match + ".gbk") as myFile:
+		    for num, line in enumerate(myFile, 1):
+		        if lookup_end in line:
+			    Contig_Header_end.append(num)
 
-				with open(Partial_Genome_ID + ".gbk") as myFile:
-				    for num, line in enumerate(myFile, 1):
-				        if lookup_end in line:
-					    Contig_Header_end.append(num)
+		with open(File_Match + ".gbk") as myFile:
+		    for num, line in enumerate(myFile, 1):
+		        if lookup_origin_start in line:
+		            Contig_Origin_start.append(num)
 
-				with open(Partial_Genome_ID + ".gbk") as myFile:
-				    for num, line in enumerate(myFile, 1):
-				        if lookup_origin_start in line:
-				            Contig_Origin_start.append(num)
+		with open(File_Match + ".gbk") as myFile:
+		    for num, line in enumerate(myFile, 1):
+		        if lookup_origin_end in line:
+			    Contig_Origin_end.append(num)
 
-				with open(Partial_Genome_ID + ".gbk") as myFile:
-				    for num, line in enumerate(myFile, 1):
-				        if lookup_origin_end in line:
-					    Contig_Origin_end.append(num)
+		#Using the fact that "Contig + Contig Number" is unique to each Contig entry
+		#I am appending the line number that matches this into each large list containing the 
+		#multiple entries for "CDS", "ORIGIN", and "//"
+		#Then, I sort the list and pick out the element of the list beside the known Contig_Header_start
+
+		Contig_Header_end.append(Contig_Header_start)		
+		Contig_Header_end.sort()
 			
-				#Using the fact that "Contig + Contig Number" is unique to each Contig entry
-				#I am appending the line number that matches this into each large list containing the 
-				#multiple entries for "CDS", "ORIGIN", and "//"
-				#Then, I sort the list and pick out the element of the list beside the known Contig_Header_start
+		Contig_Origin_start.append(Contig_Header_start)		
+		Contig_Origin_start.sort()
 
-				Contig_Header_end.append(Contig_Header_start)		
-				Contig_Header_end.sort()
+		Contig_Origin_end.append(Contig_Header_start)		
+		Contig_Origin_end.sort()
 			
-				Contig_Origin_start.append(Contig_Header_start)		
-				Contig_Origin_start.sort()
-
-				Contig_Origin_end.append(Contig_Header_start)		
-				Contig_Origin_end.sort()
+		Target = [i for i,x in enumerate(Contig_Header_end) if x == Contig_Header_start]
+		Contig_Header_end = Contig_Header_end[Target[0]+1]-1
 			
-				Target = [i for i,x in enumerate(Contig_Header_end) if x == Contig_Header_start]
-				Contig_Header_end = Contig_Header_end[Target[0]+1]-1
-			
-				Target = [i for i,x in enumerate(Contig_Origin_start) if x == Contig_Header_start]
-				Contig_Origin_start = Contig_Origin_start[Target[0]+1]-2
+		Target = [i for i,x in enumerate(Contig_Origin_start) if x == Contig_Header_start]
+		Contig_Origin_start = Contig_Origin_start[Target[0]+1]-2
 
-				Target = [i for i,x in enumerate(Contig_Origin_end) if x == Contig_Header_start]
-				Contig_Origin_end = Contig_Origin_end[Target[0]+1]
+		Target = [i for i,x in enumerate(Contig_Origin_end) if x == Contig_Header_start]
+		Contig_Origin_end = Contig_Origin_end[Target[0]+1]
 
-				Contig_Header_start = Contig_Header_start - 1
-				Contig_Header_dict[Current_Contig] = [Partial_Genome_ID, Contig_Header_start, Contig_Header_end, Contig_Origin_start, Contig_Origin_end]
+		Contig_Header_start = Contig_Header_start - 1
+		Contig_Header_dict[Current_Contig] = [File_Match, Contig_Header_start, Contig_Header_end, Contig_Origin_start, Contig_Origin_end]
 
+#print Contig_Header_dict
 #Contig_Header_dict now contains all the start and stop information for each contig present
 
 ##Now begins the process of actually writing the information to file
